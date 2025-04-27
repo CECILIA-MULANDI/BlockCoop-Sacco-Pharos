@@ -44,7 +44,9 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
     // Track lending pool balance
     uint256 public lendingPoolBalance;
 
-    constructor() Ownable(msg.sender) {
+    constructor(address _lendingToken) Ownable(msg.sender) {
+        require(_lendingToken != address(0), ERR_ZERO_ADDRESS);
+        lendingToken = _lendingToken;
         // Set deployer as initial fund manager
         isFundManager[msg.sender] = true;
         activeFundManagers.push(msg.sender);
@@ -465,20 +467,24 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
         return (totalValue, processedTokens);
     }
 
-    // Get price for a token from its price feed with validation and better error handling
+    // Get price for a token from its price feed with validation and
+    // also better error handling
     function getTokenPrice(
         address _tokenAddress
     ) public view returns (uint256) {
+        // $1 in 18 decimals
+        if (_tokenAddress == lendingToken) {
+            return 1e18;
+        }
         TokenInfo storage tokenInfo = whiteListedTokens[_tokenAddress];
         require(tokenInfo.isWhitelisted, ERR_TOKEN_NOT_WHITELISTED);
-
-        // Handle cUSD as a special case
-        if (_tokenAddress == whiteListedTokens[_tokenAddress].tokenAddress) {
-            return 1e18; // $1 in 18 decimals
-        }
-
         // For other tokens, use price feed
         require(tokenInfo.priceFeed != address(0), ERR_NO_PRICE_FEED);
+
+        // // Handle cUSD as a special case
+        // if (_tokenAddress == whiteListedTokens[_tokenAddress].tokenAddress) {
+        //     return 1e18; // $1 in 18 decimals
+        // }
 
         try
             AggregatorV3Interface(tokenInfo.priceFeed).latestRoundData()
@@ -497,10 +503,115 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
                 ERR_PRICE_FEED_STALE
             );
 
-            return uint256(price);
+            return uint256(price) * 1e10;
         } catch {
             revert(ERR_PRICE_FEED_REGISTRY_ERROR);
         }
+    }
+
+    function borrow(
+        address _collateralToken,
+        uint256 _collateralAmount,
+        uint256 _borrowAmount
+    ) external nonReentrant whenNotPaused {
+        require(
+            whiteListedTokens[_collateralToken].isWhitelisted,
+            ERR_TOKEN_NOT_WHITELISTED
+        );
+        require(_collateralAmount > 0 && _borrowAmount > 0, ERR_ZERO_AMOUNT);
+        require(
+            userDeposits[msg.sender][_collateralToken].amount >=
+                _collateralAmount,
+            "Insufficient collateral"
+        );
+        require(
+            _borrowAmount <= lendingPoolBalance,
+            "Insufficient lending pool balance"
+        );
+
+        // Get collateral value in USD (18 decimals)
+        uint256 collateralValueUSD = (getTokenPrice(_collateralToken) *
+            _collateralAmount) / 1e18;
+        uint256 maxBorrow = (collateralValueUSD * LTV_RATIO) / 100;
+        require(_borrowAmount <= maxBorrow, "Borrow amount exceeds LTV limit");
+
+        // Lock collateral
+        userDeposits[msg.sender][_collateralToken].amount -= _collateralAmount;
+
+        // Create loan
+        uint256 loanId = userLoanCount[msg.sender]++;
+        userLoans[msg.sender][loanId] = Loan({
+            collateralToken: _collateralToken,
+            collateralAmount: _collateralAmount,
+            borrowedAmount: _borrowAmount,
+            accruedInterest: 0,
+            startTimestamp: block.timestamp,
+            active: true
+        });
+
+        // Update lending pool
+        lendingPoolBalance -= _borrowAmount;
+
+        // Transfer LendToken
+        IERC20(lendingToken).safeTransfer(msg.sender, _borrowAmount);
+
+        emit LoanCreated(
+            msg.sender,
+            loanId,
+            _collateralToken,
+            _collateralAmount,
+            _borrowAmount
+        );
+    }
+
+    function repay(
+        uint256 _loanId,
+        uint256 _repayAmount
+    ) external nonReentrant whenNotPaused {
+        Loan storage loan = userLoans[msg.sender][_loanId];
+        require(loan.active, "Loan not active");
+        require(_repayAmount > 0, ERR_ZERO_AMOUNT);
+
+        // Calculate interest
+        uint256 timeElapsed = block.timestamp - loan.startTimestamp;
+        uint256 interest = (loan.borrowedAmount * INTEREST_RATE * timeElapsed) /
+            (100 * SECONDS_PER_YEAR);
+        uint256 totalOwed = loan.borrowedAmount + interest;
+        uint256 repay = _repayAmount > totalOwed ? totalOwed : _repayAmount;
+
+        // Transfer LendToken
+        IERC20(lendingToken).safeTransferFrom(msg.sender, address(this), repay);
+
+        // Update loan
+        if (repay >= totalOwed) {
+            // Full repayment
+            loan.active = false;
+            lendingPoolBalance += repay;
+            // Return collateral
+            userDeposits[msg.sender][loan.collateralToken].amount += loan
+                .collateralAmount;
+        } else {
+            // Partial repayment
+            if (repay > interest) {
+                loan.borrowedAmount -= (repay - interest);
+            }
+            loan.accruedInterest =
+                interest -
+                (repay > interest ? interest : repay);
+            lendingPoolBalance += repay;
+        }
+
+        emit LoanRepaid(msg.sender, _loanId, repay);
+    }
+
+    function fundLendingPool(uint256 _amount) external onlyOwner {
+        require(_amount > 0, ERR_ZERO_AMOUNT);
+        IERC20(lendingToken).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _amount
+        );
+        lendingPoolBalance += _amount;
     }
 
     // Check if a user has a specific token deposited
