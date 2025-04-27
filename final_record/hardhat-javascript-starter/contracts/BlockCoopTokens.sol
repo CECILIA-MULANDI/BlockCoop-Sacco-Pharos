@@ -33,6 +33,16 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant MAX_ITERATION_COUNT = 100;
 
     uint256 public stalePriceThreshold = 24 hours;
+    // Loan parameters
+    // 50% Loan-to-Value ratio
+    uint256 public constant LTV_RATIO = 5000;
+    uint256 public constant INTEREST_RATE = 500;
+    uint256 public constant LIQUIDATION_THRESHOLD = 7500;
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
+    // Lending token address (set in constructor)
+    address public lendingToken;
+    // Track lending pool balance
+    uint256 public lendingPoolBalance;
 
     constructor() Ownable(msg.sender) {
         // Set deployer as initial fund manager
@@ -50,6 +60,14 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
         uint256 amount;
         uint256 depositTimestamp;
     }
+    struct Loan {
+        address collateralToken;
+        uint256 collateralAmount;
+        uint256 borrowedAmount;
+        uint256 accruedInterest;
+        uint256 startTimestamp;
+        bool active;
+    }
 
     mapping(address => TokenInfo) public whiteListedTokens;
     // user -> token -> deposit
@@ -57,6 +75,9 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
     mapping(address => address[]) public userDepositedTokens;
     address[] public tokenList;
     mapping(address => bool) public isFundManager;
+    // user -> loanId -> Loan
+    mapping(address => mapping(uint256 => Loan)) public userLoans;
+    mapping(address => uint256) public userLoanCount;
     // Track active (whitelisted) tokens for efficient iteration
     uint256 public activeTokenCount;
 
@@ -88,6 +109,24 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
         address indexed tokenAddress,
         address indexed oldPriceFeed,
         address indexed newPriceFeed
+    );
+    event LoanCreated(
+        address indexed user,
+        uint256 loanId,
+        address indexed collateralToken,
+        uint256 collateralAmount,
+        uint256 borrowedAmount
+    );
+    event LoanRepaid(
+        address indexed user,
+        uint256 loanId,
+        uint256 repaidAmount
+    );
+    event LoanLiquidated(
+        address indexed user,
+        uint256 loanId,
+        address indexed collateralToken,
+        uint256 collateralAmount
     );
 
     modifier tokenRequirements(address _tokenAddress) {
