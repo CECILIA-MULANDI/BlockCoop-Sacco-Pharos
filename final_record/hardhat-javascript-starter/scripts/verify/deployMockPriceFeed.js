@@ -1,44 +1,62 @@
 const hre = require("hardhat");
+const fs = require("fs");
 
 async function main() {
-  // Get the deployer's account
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Deploying contracts with account:", deployer.address);
+  try {
+    console.log("Starting deployment of BlockCoopTokens...");
 
-  // Check account balance
-  const balance = await hre.ethers.provider.getBalance(deployer.address);
-  console.log("Account balance:", hre.ethers.formatEther(balance), "ETH");
+    // Get deployer account
+    const [deployer] = await hre.ethers.getSigners();
+    console.log(`Deploying with account: ${deployer.address}`);
 
-  // Get the MockPriceFeed contract factory
-  const MockPriceFeed = await hre.ethers.getContractFactory("MockPriceFeed");
+    // Check deployer balance
+    const deployerBalance = await hre.ethers.provider.getBalance(
+      deployer.address
+    );
+    console.log(
+      `Deployer balance: ${hre.ethers.utils.formatEther(deployerBalance)} ETH`
+    );
 
-  // Deploy the contract
-  console.log("Deploying MockPriceFeed...");
-  const mockPriceFeed = await MockPriceFeed.deploy();
+    // Load LendToken address
+    const addresses = JSON.parse(fs.readFileSync("./deployed-addresses.json"));
+    const lendTokenAddress = addresses.lendTokenAddress;
+    if (!lendTokenAddress)
+      throw new Error("LendToken address not found in deployed-addresses.json");
 
-  // Wait for the deployment transaction to be mined
-  await mockPriceFeed.waitForDeployment();
+    // Deploy BlockCoopTokens
+    const BlockCoopTokens = await hre.ethers.getContractFactory(
+      "BlockCoopTokens"
+    );
+    const blockCoopTokens = await BlockCoopTokens.deploy(lendTokenAddress);
+    await blockCoopTokens.deployed();
+    const blockCoopTokensAddress = blockCoopTokens.address;
+    console.log(`BlockCoopTokens deployed to: ${blockCoopTokensAddress}`);
 
-  // Get the deployed contract address
-  const contractAddress = await mockPriceFeed.getAddress();
-  console.log("MockPriceFeed deployed to:", contractAddress);
+    // Verify owner and fund manager
+    const owner = await blockCoopTokens.owner();
+    console.log(`Contract owner: ${owner}`);
+    const isFundManager = await blockCoopTokens.isFundManager(deployer.address);
+    console.log(`Deployer is fund manager: ${isFundManager}`);
 
-  // Optional: Verify the contract on Etherscan (for testnets/mainnet)
-  if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
-    console.log("Waiting for block confirmations before verification...");
-    await mockPriceFeed.deploymentTransaction().wait(6); // Wait for 6 confirmations
-    await hre.run("verify:verify", {
-      address: contractAddress,
-      constructorArguments: [],
-    });
+    // Update addresses file
+    addresses.blockCoopTokensAddress = blockCoopTokensAddress;
+    fs.writeFileSync(
+      "./deployed-addresses.json",
+      JSON.stringify(addresses, null, 2)
+    );
+    console.log("BlockCoopTokens address saved to deployed-addresses.json");
+
+    return blockCoopTokens;
+  } catch (error) {
+    console.error("Deployment failed:", error);
+    process.exit(1);
   }
 }
 
-// Error handling
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Error during deployment:", error);
+    console.error(error);
     process.exit(1);
   });
 

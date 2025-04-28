@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-//
 pragma solidity ^0.8.19;
 
 contract MockPriceFeed {
-    int256 public price = 100_000_000; // $1.00, 8 decimals (Chainlink standard)
+    int256 public price = 2000_000_000; // $2000, 8 decimals (Chainlink standard)
     uint256 public updatedAt = block.timestamp;
     uint80 public roundId = 1;
     uint256 public startedAt = block.timestamp;
@@ -17,7 +16,6 @@ contract MockPriceFeed {
         return (roundId, price, startedAt, block.timestamp, answeredInRound);
     }
 
-    // Optional: For testing different prices
     function setPrice(int256 _price) external {
         price = _price;
         updatedAt = block.timestamp;
