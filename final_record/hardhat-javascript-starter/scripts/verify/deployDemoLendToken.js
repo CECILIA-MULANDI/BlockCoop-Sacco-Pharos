@@ -1,31 +1,46 @@
+// scripts/deploy-demo-lend-token.js
 const hre = require("hardhat");
 const fs = require("fs");
+const { ethers } = hre;
+
+/**
+ * Deploy DemoToken for LendToken.
+ *
+ * This script deploys the DemoToken contract and saves the deployed address to a JSON file.
+ */
 
 async function main() {
   try {
     console.log("Starting deployment of LendToken (DemoToken)...");
 
     // Get deployer account
-    const [deployer] = await hre.ethers.getSigners();
+    const [deployer] = await ethers.getSigners();
     console.log(`Deploying with account: ${deployer.address}`);
 
     // Check deployer balance
-    const deployerBalance = await hre.ethers.provider.getBalance(
+    const deployerBalance = await ethers.provider.getBalance(
       deployer.address
     );
     console.log(
-      `Deployer balance: ${hre.ethers.utils.formatEther(deployerBalance)} ETH`
+      `Deployer balance: ${ethers.formatEther(deployerBalance)} ETH`
     );
 
     // Deploy DemoToken for LendToken
-    const DemoToken = await hre.ethers.getContractFactory("DemoToken");
+    const DemoToken = await ethers.getContractFactory("DemoToken");
     const lendToken = await DemoToken.deploy("LendToken", "LEND");
-    await lendToken.deployed();
-    const lendTokenAddress = lendToken.address;
+    await lendToken.waitForDeployment();
+    const lendTokenAddress = await lendToken.getAddress();
     console.log(`LendToken deployed to: ${lendTokenAddress}`);
 
     // Save address to JSON file
-    const addresses = { lendTokenAddress };
+    let addresses = {};
+    try {
+      addresses = JSON.parse(fs.readFileSync("./deployed-addresses.json"));
+    } catch (error) {
+      // File doesn't exist, we'll create it
+      console.log("Creating new deployed-addresses.json file");
+    }
+    addresses.lendTokenAddress = lendTokenAddress;
     fs.writeFileSync(
       "./deployed-addresses.json",
       JSON.stringify(addresses, null, 2)

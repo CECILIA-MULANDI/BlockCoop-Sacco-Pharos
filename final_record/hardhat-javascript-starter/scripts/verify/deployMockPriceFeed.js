@@ -1,52 +1,56 @@
+// scripts/deploy-mock-price-feed.js
+// File: final_record/hardhat-javascript-starter/scripts/verify/deployMockPriceFeed.js
+// Purpose: Deploy MockPriceFeed contract and save its address to deployed-addresses.json
+
 const hre = require("hardhat");
 const fs = require("fs");
+const { ethers } = hre;
 
 async function main() {
   try {
-    console.log("Starting deployment of BlockCoopTokens...");
+    console.log("Starting deployment of MockPriceFeed...");
 
     // Get deployer account
-    const [deployer] = await hre.ethers.getSigners();
+    const [deployer] = await ethers.getSigners();
     console.log(`Deploying with account: ${deployer.address}`);
 
     // Check deployer balance
-    const deployerBalance = await hre.ethers.provider.getBalance(
+    const deployerBalance = await ethers.provider.getBalance(
       deployer.address
     );
     console.log(
-      `Deployer balance: ${hre.ethers.utils.formatEther(deployerBalance)} ETH`
+      `Deployer balance: ${ethers.formatEther(deployerBalance)} ETH`
     );
 
-    // Load LendToken address
-    const addresses = JSON.parse(fs.readFileSync("./deployed-addresses.json"));
-    const lendTokenAddress = addresses.lendTokenAddress;
-    if (!lendTokenAddress)
-      throw new Error("LendToken address not found in deployed-addresses.json");
+    // Deploy MockPriceFeed
+    const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+    const priceFeed = await MockPriceFeed.deploy();
+    await priceFeed.waitForDeployment();
+    const priceFeedAddress = await priceFeed.getAddress();
+    console.log(`MockPriceFeed deployed to: ${priceFeedAddress}`);
 
-    // Deploy BlockCoopTokens
-    const BlockCoopTokens = await hre.ethers.getContractFactory(
-      "BlockCoopTokens"
+    // Verify price
+    const price = await priceFeed.price();
+    console.log(
+      `MockPriceFeed initial price: $${ethers.formatUnits(price, 8)}`
     );
-    const blockCoopTokens = await BlockCoopTokens.deploy(lendTokenAddress);
-    await blockCoopTokens.deployed();
-    const blockCoopTokensAddress = blockCoopTokens.address;
-    console.log(`BlockCoopTokens deployed to: ${blockCoopTokensAddress}`);
-
-    // Verify owner and fund manager
-    const owner = await blockCoopTokens.owner();
-    console.log(`Contract owner: ${owner}`);
-    const isFundManager = await blockCoopTokens.isFundManager(deployer.address);
-    console.log(`Deployer is fund manager: ${isFundManager}`);
 
     // Update addresses file
-    addresses.blockCoopTokensAddress = blockCoopTokensAddress;
+    let addresses = {};
+    try {
+      addresses = JSON.parse(fs.readFileSync("./deployed-addresses.json"));
+    } catch (error) {
+      // File doesn't exist, we'll create it
+      console.log("Creating new deployed-addresses.json file");
+    }
+    addresses.priceFeedAddress = priceFeedAddress;
     fs.writeFileSync(
       "./deployed-addresses.json",
       JSON.stringify(addresses, null, 2)
     );
-    console.log("BlockCoopTokens address saved to deployed-addresses.json");
+    console.log("MockPriceFeed address saved to deployed-addresses.json");
 
-    return blockCoopTokens;
+    return priceFeed;
   } catch (error) {
     console.error("Deployment failed:", error);
     process.exit(1);
@@ -59,5 +63,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-
-// 0xdA5F41747A3A8fA4200cdAe7A25B16Ae5A65c434
