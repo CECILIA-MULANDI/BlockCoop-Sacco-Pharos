@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import contractABI from "../utils/abi.json";
 
 // Get these from your deployed contract
-const CONTRACT_ADDRESS = "0xffc53a39d9fd01419ce97b8243ba628c0a8beda3";
+const CONTRACT_ADDRESS = "0x6C70060CA445484D76C9685807E6F21E42a8ab6D";
 const CHAIN_ID = "0xC352"; // 50002 in hex
 
 class ContractService {
@@ -51,41 +51,38 @@ class ContractService {
 
     this.provider = new ethers.providers.Web3Provider(window.ethereum);
     this.signer = this.provider.getSigner();
-    this.contract = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      contractABI,
-      this.signer
-    );
+    this.contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, this.signer);
     this.address = await this.signer.getAddress();
   }
 
-  async checkRole() {
-    if (!this.contract) await this.init();
-
-    try {
-      const ownerAddress = await this.contract.owner();
-      if (ownerAddress.toLowerCase() === this.address.toLowerCase())
-        return "owner";
-
-      const fundManagers = await this.contract.getAllActiveFundManagers();
-      if (
-        fundManagers.some(
-          (addr) => addr.toLowerCase() === this.address.toLowerCase()
-        )
-      )
-        return "fundManager";
-
-      return "user";
-    } catch (error) {
-      console.error("Error checking role:", error);
-      return "user";
-    }
-  }
-
-  // Owner functions
+  // === Management Functions ===
   async addFundManager(managerAddress) {
     if (!this.contract) await this.init();
     const tx = await this.contract.addFundManager(managerAddress);
+    await tx.wait();
+  }
+
+  async removeFundManager(managerAddress) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.removeFundManager(managerAddress);
+    await tx.wait();
+  }
+
+  async updateStalePriceThreshold(newThreshold) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.updateStalePriceThreshold(newThreshold);
+    await tx.wait();
+  }
+
+  async pause() {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.pause();
+    await tx.wait();
+  }
+
+  async unpause() {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.unpause();
     await tx.wait();
   }
 
@@ -95,14 +92,19 @@ class ContractService {
     await tx.wait();
   }
 
-  // Fund Manager functions
   async updatePriceFeed(tokenAddress, newPriceFeed) {
     if (!this.contract) await this.init();
     const tx = await this.contract.updatePriceFeed(tokenAddress, newPriceFeed);
     await tx.wait();
   }
 
-  // User functions
+  async unWhitelistToken(tokenAddress) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.unWhitelistToken(tokenAddress);
+    await tx.wait();
+  }
+
+  // === User Functions ===
   async deposit(tokenAddress, amount) {
     if (!this.contract) await this.init();
     const tx = await this.contract.deposit(tokenAddress, amount);
@@ -115,48 +117,104 @@ class ContractService {
     await tx.wait();
   }
 
-  // View functions
+  async borrow(collateralToken, collateralAmount, borrowAmount) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.borrow(collateralToken, collateralAmount, borrowAmount);
+    await tx.wait();
+  }
+
+  async repay(loanId, repayAmount) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.repay(loanId, repayAmount);
+    await tx.wait();
+  }
+
+  async fundLendingPool(amount) {
+    if (!this.contract) await this.init();
+    const tx = await this.contract.fundLendingPool(amount);
+    await tx.wait();
+  }
+
+  // === View Functions ===
+  async getTokensInfo(offset, limit) {
+    if (!this.contract) await this.init();
+    return await this.contract.getTokensInfo(offset, limit);
+  }
+
+  async getUserTotalValueUSD(userAddress, offset, limit) {
+    if (!this.contract) await this.init();
+    return await this.contract.getUserTotalValueUSD(userAddress, offset, limit);
+  }
+
+  async getTokenPrice(tokenAddress) {
+    if (!this.contract) await this.init();
+    return await this.contract.getTokenPrice(tokenAddress);
+  }
+
+  async hasUserDepositedToken(user, token) {
+    if (!this.contract) await this.init();
+    return await this.contract.hasUserDepositedToken(user, token);
+  }
+
   async getUserDepositedTokens(userAddress) {
     if (!this.contract) await this.init();
     return await this.contract.getUserDepositedTokens(userAddress);
   }
 
-  async getWhitelistedTokens() {
+  async getWhitelistedTokenCount() {
     if (!this.contract) await this.init();
-    
-    try {
-      // Get total count of whitelisted tokens
-      const count = await this.contract.getWhitelistedTokenCount();
-      
-      // Use the contract's getTokensInfo function to get all token details
-      const [addresses, names, symbols, decimals, prices] = await this.contract.getTokensInfo(0, count);
-      
-      // Format the data into an array of token objects
-      const tokens = addresses.map((address, index) => ({
-        address,
-        name: names[index],
-        symbol: symbols[index],
-        decimals: decimals[index],
-        price: ethers.utils.formatUnits(prices[index], 8), // Assuming price feed uses 8 decimals
-        priceFeed: null // We'll fetch this separately
-      }));
+    return await this.contract.getWhitelistedTokenCount();
+  }
 
-      // Get price feed addresses for each token
-      for (const token of tokens) {
-        const tokenInfo = await this.contract.whiteListedTokens(token.address);
-        token.priceFeed = tokenInfo.priceFeed;
-      }
-
-      return tokens;
-    } catch (error) {
-      console.error("Error fetching whitelisted tokens:", error);
-      throw error;
-    }
+  async getAllActiveFundManagers() {
+    if (!this.contract) await this.init();
+    return await this.contract.getAllActiveFundManagers();
   }
 
   async getUserDeposits(userAddress, tokenAddress) {
     if (!this.contract) await this.init();
     return await this.contract.userDeposits(userAddress, tokenAddress);
+  }
+
+  async getLendingToken() {
+    if (!this.contract) await this.init();
+    return await this.contract.lendingToken();
+  }
+
+  async getLendingPoolBalance() {
+    if (!this.contract) await this.init();
+    return await this.contract.lendingPoolBalance();
+  }
+
+  async getUserLoans(userAddress, loanId) {
+    if (!this.contract) await this.init();
+    return await this.contract.userLoans(userAddress, loanId);
+  }
+
+  async getUserLoanCount(userAddress) {
+    if (!this.contract) await this.init();
+    return await this.contract.userLoanCount(userAddress);
+  }
+
+  async checkRole() {
+    if (!this.contract) await this.init();
+
+    try {
+      const ownerAddress = await this.contract.owner();
+      if (ownerAddress.toLowerCase() === this.address.toLowerCase())
+        return "owner";
+
+      const fundManagers = await this.contract.getAllActiveFundManagers();
+      if (fundManagers.some(
+        (addr) => addr.toLowerCase() === this.address.toLowerCase()
+      ))
+        return "fundManager";
+
+      return "user";
+    } catch (error) {
+      console.error("Error checking role:", error);
+      return "user";
+    }
   }
 }
 
