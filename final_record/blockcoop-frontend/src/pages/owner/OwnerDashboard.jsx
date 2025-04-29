@@ -7,6 +7,7 @@ import { useMessages } from '../../hooks/useMessages';
 import WhitelistTokenForm from '../../components/forms/WhitelistTokenForm';
 import TokenInfoDisplay from '../../forms/displayTokens';
 import Header from '../../layouts/Header';
+import TokenDistributionForm from '../../components/forms/TokenDistributionForm';
 
 export default function OwnerDashboard() {
   const location = useLocation();
@@ -16,6 +17,7 @@ export default function OwnerDashboard() {
     const path = location.pathname;
     if (path.includes('/tokens')) return 'tokens';
     if (path.includes('/displayTokens')) return 'displayTokens';
+    if (path.includes('/tokenDistribution')) return 'tokenDistribution';
     return 'managers';
   });
 
@@ -226,6 +228,19 @@ export default function OwnerDashboard() {
             >
               Display Tokens
             </button>
+            <button
+              className={`py-2 px-4 font-medium ${
+                activeTab === 'tokenDistribution'
+                  ? 'border-b-2 border-blue-400 text-blue-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              onClick={() => {
+                setActiveTab('tokenDistribution');
+                navigate('/owner-dashboard/tokenDistribution');
+              }}
+            >
+              Token Distribution
+            </button>
           </div>
         </div>
       </div>
@@ -286,6 +301,13 @@ export default function OwnerDashboard() {
               Whitelisted Tokens
             </h3>
             <TokenInfoDisplay />
+          </div>
+        )}
+
+        {activeTab === 'tokenDistribution' && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-white">Token Distribution</h2>
+            <TokenDistributionForm />
           </div>
         )}
       </div>

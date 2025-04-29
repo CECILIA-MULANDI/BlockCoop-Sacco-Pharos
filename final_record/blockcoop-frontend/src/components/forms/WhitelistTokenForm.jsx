@@ -1,58 +1,56 @@
-import React, { useState } from 'react';
-import { useWhitelistToken } from '../../hooks/useContractFunctions';
-import { useMessages } from '../../hooks/useMessages';
+import React, { useState } from "react";
+import { useWhitelistToken } from "../../hooks/useContractFunctions";
+import { useMessages } from "../../hooks/useMessages";
 
 export default function WhitelistTokenForm() {
-  const [tokenAddress, setTokenAddress] = useState('');
-  const [priceFeed, setPriceFeed] = useState('');
-  
-  const { whitelistToken, isLoading } = useWhitelistToken();
-  const {
-    successMessage,
-    errorMessage,
-    displaySuccessMessage,
-    displayErrorMessage,
-    clearSuccessMessage,
-  } = useMessages();
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [priceFeed, setPriceFeed] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { whitelistToken } = useWhitelistToken();
+  const { displaySuccessMessage, displayErrorMessage } = useMessages();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!tokenAddress.startsWith('0x') || !priceFeed.startsWith('0x')) {
-      displayErrorMessage('Please enter valid addresses');
+    if (!tokenAddress.startsWith("0x") || !priceFeed.startsWith("0x")) {
+      displayErrorMessage("Please enter valid addresses");
       return;
     }
 
     try {
-      await whitelistToken(tokenAddress, priceFeed);
-      displaySuccessMessage('Token whitelisted successfully!');
-      setTokenAddress('');
-      setPriceFeed('');
+      setIsSubmitting(true);
+      displayErrorMessage("Waiting for wallet signature...");
+
+      // First wait for user to sign the transaction
+      const tx = await whitelistToken(tokenAddress, priceFeed);
+      displayErrorMessage("Please wait for transaction confirmation...");
+
+      // Then wait for transaction to be confirmed
+      await tx.wait();
+
+      // Only show success after confirmation
+      displaySuccessMessage("Token whitelisted successfully!");
+      setTokenAddress("");
+      setPriceFeed("");
     } catch (err) {
       displayErrorMessage(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="p-4 border rounded-lg mb-8 shadow-md bg-gray-800">
-      <h3 className="text-xl font-semibold mb-4 text-white">Whitelist New Token</h3>
-      
-      {/* Success/Error Messages */}
-      {successMessage && (
-        <div className="mb-4 p-3 bg-green-900/50 border border-green-500 text-green-200 rounded">
-          {successMessage}
-          <button onClick={clearSuccessMessage} className="float-right text-green-400 hover:text-green-300">×</button>
-        </div>
-      )}
-      
-      {errorMessage && (
-        <div className="mb-4 p-3 bg-red-900/50 border border-red-500 text-red-200 rounded">
-          {errorMessage}
-        </div>
-      )}
+      <h3 className="text-xl font-semibold mb-4 text-white">
+        Whitelist New Token
+      </h3>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="tokenAddress" className="block text-sm font-medium text-gray-300 mb-1">
+          <label
+            htmlFor="tokenAddress"
+            className="block text-sm font-medium text-gray-300 mb-1"
+          >
             Token Address
           </label>
           <input
@@ -66,7 +64,10 @@ export default function WhitelistTokenForm() {
         </div>
 
         <div>
-          <label htmlFor="priceFeed" className="block text-sm font-medium text-gray-300 mb-1">
+          <label
+            htmlFor="priceFeed"
+            className="block text-sm font-medium text-gray-300 mb-1"
+          >
             Price Feed Address
           </label>
           <input
@@ -81,10 +82,10 @@ export default function WhitelistTokenForm() {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isSubmitting}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300"
         >
-          {isLoading ? 'Whitelisting...' : 'Whitelist Token'}
+          {isSubmitting ? "Processing..." : "Whitelist Token"}
         </button>
       </form>
     </div>

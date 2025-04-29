@@ -88,14 +88,68 @@ class ContractService {
 
   async whitelistToken(tokenAddress, priceFeed) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.whitelistToken(tokenAddress, priceFeed);
-    await tx.wait();
+    try {
+      // First check if the user has the right role
+      const role = await this.checkRole();
+      if (role !== 'owner' && role !== 'fundManager') {
+        throw new Error('Unauthorized: Only owner or fund manager can whitelist tokens');
+      }
+
+      // Check if token is already whitelisted
+      const tokenInfo = await this.contract.whiteListedTokens(tokenAddress);
+      if (tokenInfo.isWhitelisted) {
+        throw new Error('Token is already whitelisted');
+      }
+
+      // Add gas limit to avoid estimation errors
+      const tx = await this.contract.whitelistToken(tokenAddress, priceFeed, {
+        gasLimit: 500000 // Explicit gas limit
+      });
+      return tx;
+    } catch (error) {
+      // Improve error messages
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds to execute transaction');
+      } else {
+        console.error('Whitelist error:', error);
+        throw new Error(`Failed to whitelist token: ${error.message}`);
+      }
+    }
   }
 
   async updatePriceFeed(tokenAddress, newPriceFeed) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.updatePriceFeed(tokenAddress, newPriceFeed);
-    await tx.wait();
+    try {
+      // First check if the user has the right role
+      const role = await this.checkRole();
+      if (role !== 'owner' && role !== 'fundManager') {
+        throw new Error('Unauthorized: Only owner or fund manager can update price feed');
+      }
+
+      // Check if token exists
+      const tokenInfo = await this.contract.whiteListedTokens(tokenAddress);
+      if (!tokenInfo.isWhitelisted) {
+        throw new Error('Token is not whitelisted');
+      }
+
+      // Add gas limit to avoid estimation errors
+      const tx = await this.contract.updatePriceFeed(tokenAddress, newPriceFeed, {
+        gasLimit: 500000 // Explicit gas limit
+      });
+      return tx;
+    } catch (error) {
+      // Improve error messages
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds to execute transaction');
+      } else {
+        console.error('Update price feed error:', error);
+        throw new Error(`Failed to update price feed: ${error.message}`);
+      }
+    }
   }
 
   async unWhitelistToken(tokenAddress) {
@@ -107,8 +161,53 @@ class ContractService {
   // === User Functions ===
   async deposit(tokenAddress, amount) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.deposit(tokenAddress, amount);
-    await tx.wait();
+    try {
+      // First check if token is whitelisted
+      const tokenInfo = await this.contract.whiteListedTokens(tokenAddress);
+      if (!tokenInfo.isWhitelisted) {
+        throw new Error('Token is not whitelisted');
+      }
+
+      // Check token balance and allowance
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        [
+          "function balanceOf(address) view returns (uint256)",
+          "function allowance(address owner, address spender) view returns (uint256)",
+          "function approve(address spender, uint256 amount) returns (bool)"
+        ],
+        this.signer
+      );
+
+      const balance = await tokenContract.balanceOf(this.address);
+      if (balance.lt(amount)) {
+        throw new Error('Insufficient token balance');
+      }
+
+      // Check allowance
+      const allowance = await tokenContract.allowance(this.address, this.contract.address);
+      if (allowance.lt(amount)) {
+        // If allowance is insufficient, request approval
+        const approveTx = await tokenContract.approve(this.contract.address, amount);
+        await approveTx.wait();
+      }
+
+      // Make the deposit with explicit gas limit
+      const tx = await this.contract.deposit(tokenAddress, amount, {
+        gasLimit: 500000 // Explicit gas limit to avoid estimation errors
+      });
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error('Deposit error:', error);
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas');
+      } else {
+        throw new Error(`Deposit failed: ${error.message}`);
+      }
+    }
   }
 
   async withdraw(tokenAddress, amount) {
@@ -148,7 +247,16 @@ class ContractService {
 
   async getTokenPrice(tokenAddress) {
     if (!this.contract) await this.init();
-    return await this.contract.getTokenPrice(tokenAddress);
+    try {
+      const rawPrice = await this.contract.getTokenPrice(tokenAddress);
+      // Price comes in with 8 decimals from Chainlink
+      // Convert it to a proper decimal number
+      const price = ethers.utils.formatUnits(rawPrice, 8);
+      return price;
+    } catch (error) {
+      console.error('Error getting token price:', error);
+      throw error;
+    }
   }
 
   async hasUserDepositedToken(user, token) {
@@ -214,6 +322,55 @@ class ContractService {
     } catch (error) {
       console.error("Error checking role:", error);
       return "user";
+    }
+  }
+
+  async getWhitelistedTokens() {
+    if (!this.contract) await this.init();
+    const count = await this.getWhitelistedTokenCount();
+    const tokensInfo = await this.getTokensInfo(0, count);
+    
+    // Transform the data into a more usable format
+    const tokens = [];
+    for (let i = 0; i < tokensInfo.tokens.length; i++) {
+      const token = {
+        address: tokensInfo.tokens[i],
+        name: tokensInfo.names[i],
+        symbol: tokensInfo.symbols[i],
+        decimals: tokensInfo.decimals[i],
+        price: tokensInfo.prices[i].toString(),
+        priceFeed: await this.contract.whiteListedTokens(tokensInfo.tokens[i]).then(info => info.priceFeed)
+      };
+      tokens.push(token);
+    }
+    return tokens;
+  }
+
+  async getTokenBalance(tokenAddress, address) {
+    if (!this.contract) await this.init();
+    try {
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        [
+          "function balanceOf(address) view returns (uint256)",
+          "function symbol() view returns (string)",
+          "function decimals() view returns (uint8)"
+        ],
+        this.provider
+      );
+      
+      const balance = await tokenContract.balanceOf(address);
+      const symbol = await tokenContract.symbol();
+      const decimals = await tokenContract.decimals();
+      
+      return {
+        raw: balance,
+        formatted: ethers.utils.formatUnits(balance, decimals),
+        symbol
+      };
+    } catch (error) {
+      console.error('Error getting token balance:', error);
+      throw new Error(`Failed to get token balance: ${error.message}`);
     }
   }
 }

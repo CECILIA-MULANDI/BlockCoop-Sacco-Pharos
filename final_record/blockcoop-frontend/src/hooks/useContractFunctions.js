@@ -44,22 +44,11 @@ export const useGetActiveFundManagers = () => {
 };
 
 export const useWhitelistToken = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
   const whitelistToken = useCallback(async (tokenAddress, priceFeed) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await contractService.whitelistToken(tokenAddress, priceFeed);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    return contractService.whitelistToken(tokenAddress, priceFeed);
   }, []);
 
-  return { whitelistToken, isLoading, error };
+  return { whitelistToken };
 };
 
 export const useGetWhitelistedTokens = () => {

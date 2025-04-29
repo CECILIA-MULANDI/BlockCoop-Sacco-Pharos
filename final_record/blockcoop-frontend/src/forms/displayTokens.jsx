@@ -14,8 +14,15 @@ export default function TokenInfoDisplay() {
   const loadTokens = async () => {
     try {
       setError(null);
+      // Get all whitelisted tokens with their complete info
       const whitelistedTokens = await contractService.getWhitelistedTokens();
-      setTokens(whitelistedTokens);
+      setTokens({ 
+        tokens: whitelistedTokens.map(t => t.address),
+        names: whitelistedTokens.map(t => t.name),
+        symbols: whitelistedTokens.map(t => t.symbol),
+        prices: whitelistedTokens.map(t => t.price),
+        priceFeeds: whitelistedTokens.map(t => t.priceFeed)
+      });
     } catch (error) {
       console.error('Error loading tokens:', error);
       setError('Failed to load tokens. Please try again later.');
@@ -28,8 +35,13 @@ export default function TokenInfoDisplay() {
     try {
       setUpdateLoading(tokenAddress);
       setError(null);
-      await contractService.updatePriceFeed(tokenAddress, newPriceFeed);
-      await loadTokens();
+      const tx = await contractService.updatePriceFeed(tokenAddress, newPriceFeed);
+      if (!tx) {
+        throw new Error('Transaction failed');
+      }
+      await tx.wait(); // Wait for confirmation
+      await loadTokens(); // Reload tokens after update
+      setError(null);
     } catch (error) {
       console.error('Error updating price feed:', error);
       setError(`Failed to update price feed: ${error.message}`);
@@ -81,43 +93,43 @@ export default function TokenInfoDisplay() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {tokens.map((token) => (
-              <tr key={token.address}>
+            {tokens.tokens && tokens.tokens.map((tokenAddress, index) => (
+              <tr key={tokenAddress}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {token.name || 'Unknown'}
+                  {tokens.names[index] || 'Unknown'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {token.symbol || 'Unknown'}
+                  {tokens.symbols[index] || 'Unknown'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <div className="flex items-center">
-                    <span className="truncate max-w-xs" title={token.address}>
-                      {token.address}
+                    <span className="truncate max-w-xs" title={tokenAddress}>
+                      {tokenAddress}
                     </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <div className="flex items-center">
-                    <span className="truncate max-w-xs" title={token.priceFeed}>
-                      {token.priceFeed}
+                    <span className="truncate max-w-xs" title={tokens.priceFeeds?.[index]}>
+                      {tokens.priceFeeds?.[index] || 'Not set'}
                     </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  ${parseFloat(token.price).toFixed(2)}
+                  ${tokens.prices && tokens.prices[index] ? parseFloat(tokens.prices[index].toString()) / 1e18 : 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <button
                     onClick={() => {
                       const newPriceFeed = prompt('Enter new price feed address:');
                       if (newPriceFeed) {
-                        handleUpdatePrice(token.address, newPriceFeed);
+                        handleUpdatePrice(tokenAddress, newPriceFeed);
                       }
                     }}
-                    disabled={updateLoading === token.address}
+                    disabled={updateLoading === tokenAddress}
                     className={`text-blue-600 hover:text-blue-900 disabled:text-blue-300 disabled:cursor-not-allowed`}
                   >
-                    {updateLoading === token.address ? 'Updating...' : 'Update Price Feed'}
+                    {updateLoading === tokenAddress ? 'Updating...' : 'Update Price Feed'}
                   </button>
                 </td>
               </tr>

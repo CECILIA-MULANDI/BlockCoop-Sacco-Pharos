@@ -19,6 +19,7 @@ function App() {
           <Route path="managers" element={<OwnerDashboard />} />
           <Route path="tokens" element={<OwnerDashboard />} />
           <Route path="displayTokens" element={<OwnerDashboard />} />
+          <Route path="tokenDistribution" element={<OwnerDashboard />} />
         </Route>
         
         {/* Fund Manager Routes */}

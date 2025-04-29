@@ -63,11 +63,25 @@ export default function UserDashboard() {
           const deposit = await contractService.getUserDeposits(address, tokenAddress);
           const price = await contractService.getTokenPrice(tokenAddress);
           
+          // Format amount from 18 decimals
+          const amount = ethers.utils.formatEther(deposit.amount);
+          // Price is already formatted from getTokenPrice
+          const priceInUSD = Number(price);
+          // Calculate USD value: amount * price
+          const valueInUSD = Number(amount) * priceInUSD;
+          
+          console.log('Calculated values:', {
+            amount: Number(amount),
+            priceInUSD,
+            valueInUSD
+          });
+          
           return {
             address: tokenAddress,
-            amount: ethers.utils.formatEther(deposit.amount),
+            amount,
             depositTimestamp: new Date(deposit.depositTimestamp.toNumber() * 1000).toLocaleString(),
-            value: ethers.utils.formatEther(deposit.amount.mul(price)),
+            value: valueInUSD,
+            pricePerToken: priceInUSD
           };
         })
       );
@@ -220,7 +234,13 @@ export default function UserDashboard() {
                     Total Portfolio Value
                   </p>
                   <p className="text-3xl font-bold text-green-600 mt-1">
-                    ${loading ? '...' : userTokens.reduce((acc, token) => acc + parseFloat(token.value), 0).toFixed(2)}{' '}
+                    ${loading 
+                      ? '...' 
+                      : userTokens.reduce((acc, token) => acc + Number(token.value), 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })
+                    }{' '}
                     <span className="text-sm text-gray-500">USD</span>
                   </p>
                 </div>
@@ -250,12 +270,24 @@ export default function UserDashboard() {
                         </div>
                         <div className="space-y-1 text-sm">
                           <p className="text-gray-700">
-                            Amount: <span className="font-semibold">{parseFloat(token.amount).toFixed(4)}</span>
+                            Amount: <span className="font-semibold">{Number(token.amount).toLocaleString(undefined, {
+                              minimumFractionDigits: 4,
+                              maximumFractionDigits: 4
+                            })}</span>
+                          </p>
+                          <p className="text-gray-700">
+                            Price: <span className="font-semibold">${Number(token.pricePerToken).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })} USD</span>
                           </p>
                           <p className="text-gray-700">
                             Value:{' '}
                             <span className="font-semibold text-green-600">
-                              ${parseFloat(token.value).toFixed(2)} USD
+                              ${Number(token.value).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })} USD
                             </span>
                           </p>
                           <p className="text-gray-600">
