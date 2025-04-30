@@ -212,14 +212,73 @@ class ContractService {
 
   async withdraw(tokenAddress, amount) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.withdraw(tokenAddress, amount);
-    await tx.wait();
+    try {
+      // First check if token is whitelisted
+      const tokenInfo = await this.contract.whiteListedTokens(tokenAddress);
+      if (!tokenInfo.isWhitelisted) {
+        throw new Error('Token is not whitelisted');
+      }
+
+      // Check user's available balance
+      const userDeposit = await this.contract.userDeposits(this.address, tokenAddress);
+      console.log('User deposit amount:', userDeposit.amount.toString());
+      console.log('Attempting to withdraw:', amount.toString());
+
+      // Add gas limit to avoid estimation errors
+      const tx = await this.contract.withdraw(tokenAddress, amount, {
+        gasLimit: 500000 // Explicit gas limit
+      });
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error('Withdraw error:', error);
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas');
+      } else if (error.message.includes('insufficient balance')) {
+        throw new Error('Insufficient balance to withdraw');
+      } else {
+        throw new Error(`Withdrawal failed: ${error.message}`);
+      }
+    }
   }
 
   async borrow(collateralToken, collateralAmount, borrowAmount) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.borrow(collateralToken, collateralAmount, borrowAmount);
-    await tx.wait();
+    try {
+      // First check if token is whitelisted
+      const tokenInfo = await this.contract.whiteListedTokens(collateralToken);
+      if (!tokenInfo.isWhitelisted) {
+        throw new Error('Token is not whitelisted');
+      }
+
+      // Check user's available balance
+      const userDeposit = await this.contract.userDeposits(this.address, collateralToken);
+      console.log('User deposit amount:', userDeposit.amount.toString());
+      console.log('Attempting to borrow with collateral:', collateralAmount.toString());
+      console.log('Borrow amount:', borrowAmount.toString());
+
+      // Add gas limit to avoid estimation errors
+      const tx = await this.contract.borrow(collateralToken, collateralAmount, borrowAmount, {
+        gasLimit: 500000 // Explicit gas limit
+      });
+      await tx.wait();
+      return tx;
+    } catch (error) {
+      console.error('Borrow error:', error);
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas');
+      } else if (error.message.includes('insufficient balance')) {
+        throw new Error('Insufficient collateral balance');
+      } else if (error.message.includes('insufficient lending pool')) {
+        throw new Error('Insufficient lending pool balance');
+      } else {
+        throw new Error(`Borrow failed: ${error.message}`);
+      }
+    }
   }
 
   async repay(loanId, repayAmount) {
@@ -228,10 +287,44 @@ class ContractService {
     await tx.wait();
   }
 
+  async repayLoan(loanId, amount) {
+    try {
+      if (!this.contract) {
+        await this.init();
+      }
+      console.log('Repaying loan:', { loanId, amount: amount.toString() });
+      const tx = await this.contract.repay(loanId, amount);
+      console.log('Repay transaction:', tx.hash);
+      return tx;
+    } catch (error) {
+      console.error('Error repaying loan:', error);
+      throw error;
+    }
+  }
+
   async fundLendingPool(amount) {
     if (!this.contract) await this.init();
-    const tx = await this.contract.fundLendingPool(amount);
-    await tx.wait();
+    try {
+      // Add gas limit to avoid estimation errors
+      const tx = await this.contract.fundLendingPool(amount, {
+        gasLimit: 500000 // Explicit gas limit
+      });
+      console.log('Funding transaction:', tx.hash);
+      await tx.wait();
+      console.log('Funding confirmed');
+      return tx;
+    } catch (error) {
+      console.error('Funding error:', error);
+      if (error.message.includes('user rejected')) {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas');
+      } else if (error.message.includes('not owner')) {
+        throw new Error('Only the owner can fund the lending pool');
+      } else {
+        throw new Error(`Failed to fund lending pool: ${error.message}`);
+      }
+    }
   }
 
   // === View Functions ===
@@ -249,10 +342,12 @@ class ContractService {
     if (!this.contract) await this.init();
     try {
       const rawPrice = await this.contract.getTokenPrice(tokenAddress);
-      // Price comes in with 8 decimals from Chainlink
-      // Convert it to a proper decimal number
-      const price = ethers.utils.formatUnits(rawPrice, 8);
-      return price;
+      console.log('Raw price from contract:', rawPrice.toString());
+      
+      // Price comes in with 18 decimals
+      const formattedPrice = Number(ethers.utils.formatEther(rawPrice));
+      console.log('Formatted price:', formattedPrice);
+      return formattedPrice;
     } catch (error) {
       console.error('Error getting token price:', error);
       throw error;

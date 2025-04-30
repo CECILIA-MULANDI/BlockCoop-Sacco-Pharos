@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -10,11 +10,11 @@ export default function Header() {
 
   const handleConnectWallet = async () => {
     if (connecting) return;
-    
+
     try {
       setConnecting(true);
       setError(null);
-      
+
       const role = await connect();
       console.log("Connected with role:", role);
 
@@ -42,11 +42,9 @@ export default function Header() {
   return (
     <header className="bg-gray-800 text-white py-4">
       <div className="container mx-auto px-4 flex justify-between items-center">
-        <div className="text-xl font-bold">Blockcoop</div>
+        <div className="text-xl font-bold">BlockCoop</div>
         <div className="flex items-center gap-4">
-          {error && (
-            <p className="text-red-400 text-sm">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
           {isConnected ? (
             <button
               onClick={handleDisconnect}
@@ -60,7 +58,7 @@ export default function Header() {
               disabled={connecting}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-blue-400"
             >
-              {connecting ? 'Connecting...' : 'Connect Wallet'}
+              {connecting ? "Connecting..." : "Connect Wallet"}
             </button>
           )}
         </div>

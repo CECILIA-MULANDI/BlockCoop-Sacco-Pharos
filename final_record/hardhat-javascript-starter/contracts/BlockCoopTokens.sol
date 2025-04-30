@@ -39,15 +39,17 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant INTEREST_RATE = 500; // 5% annual interest
     uint256 public constant LIQUIDATION_THRESHOLD = 7500; // 75% threshold
     uint256 public constant SECONDS_PER_YEAR = 365 days;
-    // Lending token address (set in constructor or via setter)
+
     address public lendingToken;
     // Track lending pool balance
     uint256 public lendingPoolBalance;
+    // Track total borrowed amount
+    uint256 public totalBorrowed;
 
     constructor(address _lendingToken) Ownable(msg.sender) {
         require(_lendingToken != address(0), ERR_ZERO_ADDRESS);
         lendingToken = _lendingToken;
-        // Set deployer as initial fund manager
+
         isFundManager[msg.sender] = true;
         activeFundManagers.push(msg.sender);
     }
@@ -463,6 +465,7 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
             active: true
         });
         lendingPoolBalance -= _borrowAmount;
+        totalBorrowed += _borrowAmount;
         IERC20(lendingToken).safeTransfer(msg.sender, _borrowAmount);
         emit LoanCreated(
             msg.sender,
@@ -489,11 +492,14 @@ contract BlockCoopTokens is Ownable, ReentrancyGuard, Pausable {
         if (repay >= totalOwed) {
             loan.active = false;
             lendingPoolBalance += repay;
+            totalBorrowed -= loan.borrowedAmount;
             userDeposits[msg.sender][loan.collateralToken].amount += loan
                 .collateralAmount;
         } else {
             if (repay > interest) {
-                loan.borrowedAmount -= (repay - interest);
+                uint256 principalPayment = repay - interest;
+                loan.borrowedAmount -= principalPayment;
+                totalBorrowed -= principalPayment;
             }
             loan.accruedInterest =
                 interest -

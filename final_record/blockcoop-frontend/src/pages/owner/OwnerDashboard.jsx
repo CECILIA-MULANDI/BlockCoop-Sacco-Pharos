@@ -8,6 +8,7 @@ import WhitelistTokenForm from '../../components/forms/WhitelistTokenForm';
 import TokenInfoDisplay from '../../forms/displayTokens';
 import Header from '../../layouts/Header';
 import TokenDistributionForm from '../../components/forms/TokenDistributionForm';
+import FundLendingPoolForm from '../../components/forms/FundLendingPoolForm';
 
 export default function OwnerDashboard() {
   const location = useLocation();
@@ -18,6 +19,7 @@ export default function OwnerDashboard() {
     if (path.includes('/tokens')) return 'tokens';
     if (path.includes('/displayTokens')) return 'displayTokens';
     if (path.includes('/tokenDistribution')) return 'tokenDistribution';
+    if (path.includes('/fundPool')) return 'fundPool';
     return 'managers';
   });
 
@@ -116,7 +118,7 @@ export default function OwnerDashboard() {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-b from-blue-900 to-gray-900">
       <Header />
       
       {/* Success message toast notification */}
@@ -159,157 +161,142 @@ export default function OwnerDashboard() {
         </div>
       )}
 
-      {/* Owner-specific navbar */}
-      <div className="bg-blue-500 text-white shadow-lg mb-6">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between">
-            <div className="py-4 text-center sm:text-left">
-              <h2 className="text-xl font-bold">Owner Dashboard</h2>
-              <p className="text-white/80 text-sm">Welcome, Contract Owner</p>
-            </div>
+      <div className="container mx-auto px-4 py-4 sm:py-8">
+        {/* Welcome Section */}
+        <div className="mb-6 sm:mb-8 text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Owner Dashboard</h1>
+          <p className="text-blue-200 text-sm sm:text-base">Manage your BlockCoop platform</p>
+        </div>
 
-            {/* Stats summary */}
-            <div className="flex gap-6 mt-4 sm:mt-0">
-              <div className="text-center">
-                <p className="text-gray-300 text-xs">Total Managers</p>
-                <p className="text-lg font-semibold">
-                  {isLoading ? '...' : fundManagers?.length ?? 0}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-gray-300 text-xs">Recent Activity</p>
-                <p className="text-lg font-semibold">
-                  {addedEventsObj.isLoading
-                    ? '...'
-                    : addedEventsObj.events?.length ?? 0}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Tab navigation */}
-          <div className="flex flex-wrap mt-2 border-b border-gray-700">
+        {/* Navigation Tabs */}
+        <div className="mb-6 sm:mb-8 overflow-x-auto">
+          <div className="flex flex-nowrap sm:justify-center min-w-full border-b border-blue-700/30">
             <button
-              className={`py-2 px-4 font-medium ${
+              onClick={() => setActiveTab('managers')}
+              className={`py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg font-medium whitespace-nowrap transition-all ${
                 activeTab === 'managers'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-900/20'
+                  : 'text-blue-200 hover:text-white'
               }`}
-              onClick={() => {
-                setActiveTab('managers');
-                navigate('/owner-dashboard/managers');
-              }}
             >
               Manage Fund Managers
             </button>
             <button
-              className={`py-2 px-4 font-medium ${
+              onClick={() => setActiveTab('tokens')}
+              className={`py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg font-medium whitespace-nowrap transition-all ${
                 activeTab === 'tokens'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-900/20'
+                  : 'text-blue-200 hover:text-white'
               }`}
-              onClick={() => {
-                setActiveTab('tokens');
-                navigate('/owner-dashboard/tokens');
-              }}
             >
               Whitelist Tokens
             </button>
             <button
-              className={`py-2 px-4 font-medium ${
+              onClick={() => setActiveTab('displayTokens')}
+              className={`py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg font-medium whitespace-nowrap transition-all ${
                 activeTab === 'displayTokens'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-900/20'
+                  : 'text-blue-200 hover:text-white'
               }`}
-              onClick={() => {
-                setActiveTab('displayTokens');
-                navigate('/owner-dashboard/displayTokens');
-              }}
             >
               Display Tokens
             </button>
             <button
-              className={`py-2 px-4 font-medium ${
+              onClick={() => setActiveTab('tokenDistribution')}
+              className={`py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg font-medium whitespace-nowrap transition-all ${
                 activeTab === 'tokenDistribution'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-900/20'
+                  : 'text-blue-200 hover:text-white'
               }`}
-              onClick={() => {
-                setActiveTab('tokenDistribution');
-                navigate('/owner-dashboard/tokenDistribution');
-              }}
             >
               Token Distribution
             </button>
+            <button
+              onClick={() => setActiveTab('fundPool')}
+              className={`py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg font-medium whitespace-nowrap transition-all ${
+                activeTab === 'fundPool'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-900/20'
+                  : 'text-blue-200 hover:text-white'
+              }`}
+            >
+              Fund Pool
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4">
-        {/* Content based on active tab */}
-        {activeTab === 'managers' && (
-          <div>
-            {/* Add Fund Manager Section */}
-            <div className="mb-8 p-4 border rounded-lg bg-gray-800 shadow-md">
-              <h3 className="text-xl font-semibold mb-4 text-white">
-                Add Fund Manager
-              </h3>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  value={newManagerAddress}
-                  onChange={(e) => setNewManagerAddress(e.target.value)}
-                  placeholder="Enter Wallet address (0x...)"
-                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400 text-sm sm:text-base"
-                />
-                <button
-                  onClick={handleAddManager}
-                  disabled={addingManager}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300 text-sm sm:text-base"
-                >
-                  {addingManager ? 'Adding...' : 'Add Manager'}
-                </button>
+        {/* Content Area */}
+        <div className="w-full max-w-4xl mx-auto px-0 sm:px-4">
+          {activeTab === 'managers' && (
+            <div className="bg-gradient-to-br from-blue-800/50 to-blue-900/50 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl p-4 sm:p-8 backdrop-blur-sm border border-blue-700/30">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Manage Fund Managers</h2>
+              {/* Add Fund Manager Section */}
+              <div className="mb-8 p-4 border rounded-lg bg-gray-800 shadow-md">
+                <h3 className="text-xl font-semibold mb-4 text-white">
+                  Add Fund Manager
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={newManagerAddress}
+                    onChange={(e) => setNewManagerAddress(e.target.value)}
+                    placeholder="Enter Wallet address (0x...)"
+                    className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400 text-sm sm:text-base"
+                  />
+                  <button
+                    onClick={handleAddManager}
+                    disabled={addingManager}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300 text-sm sm:text-base"
+                  >
+                    {addingManager ? 'Adding...' : 'Add Manager'}
+                  </button>
+                </div>
+
+                {/* Error display */}
+                {addManagerError && (
+                  <div className="mt-2 p-2 bg-red-900/50 border border-red-500 text-red-200 rounded text-sm sm:text-base">
+                    Error: {addManagerError}
+                  </div>
+                )}
               </div>
 
-              {/* Error display */}
-              {addManagerError && (
-                <div className="mt-2 p-2 bg-red-900/50 border border-red-500 text-red-200 rounded text-sm sm:text-base">
-                  Error: {addManagerError}
-                </div>
-              )}
+              {/* Fund Managers List */}
+              <div className="p-4 border rounded-lg mb-8 shadow-md bg-gray-800">
+                <h3 className="text-xl font-semibold mb-4 text-white">
+                  Current Fund Managers
+                </h3>
+                {renderFundManagersList()}
+              </div>
             </div>
+          )}
 
-            {/* Fund Managers List */}
-            <div className="p-4 border rounded-lg mb-8 shadow-md bg-gray-800">
-              <h3 className="text-xl font-semibold mb-4 text-white">
-                Current Fund Managers
-              </h3>
-              {renderFundManagersList()}
+          {activeTab === 'tokens' && (
+            <div className="bg-gradient-to-br from-blue-800/50 to-blue-900/50 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl p-4 sm:p-8 backdrop-blur-sm border border-blue-700/30">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Whitelist Tokens</h2>
+              <WhitelistTokenForm />
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'tokens' && (
-          <div>
-            <WhitelistTokenForm />
-          </div>
-        )}
+          {activeTab === 'displayTokens' && (
+            <div className="bg-gradient-to-br from-blue-800/50 to-blue-900/50 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl p-4 sm:p-8 backdrop-blur-sm border border-blue-700/30">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Display Tokens</h2>
+              <TokenInfoDisplay />
+            </div>
+          )}
 
-        {activeTab === 'displayTokens' && (
-          <div className="p-4 border rounded-lg mb-8 shadow-md bg-gray-800">
-            <h3 className="text-xl font-semibold mb-4 text-white">
-              Whitelisted Tokens
-            </h3>
-            <TokenInfoDisplay />
-          </div>
-        )}
+          {activeTab === 'tokenDistribution' && (
+            <div className="bg-gradient-to-br from-blue-800/50 to-blue-900/50 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl p-4 sm:p-8 backdrop-blur-sm border border-blue-700/30">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Token Distribution</h2>
+              <TokenDistributionForm />
+            </div>
+          )}
 
-        {activeTab === 'tokenDistribution' && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4 text-white">Token Distribution</h2>
-            <TokenDistributionForm />
-          </div>
-        )}
+          {activeTab === 'fundPool' && (
+            <div className="bg-gradient-to-br from-blue-800/50 to-blue-900/50 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl p-4 sm:p-8 backdrop-blur-sm border border-blue-700/30">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Fund Pool</h2>
+              <FundLendingPoolForm />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

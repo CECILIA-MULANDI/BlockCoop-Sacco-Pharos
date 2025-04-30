@@ -73,14 +73,27 @@ export default function WithdrawForm({ onSuccess, onSwitchTab }) {
         throw new Error('Please select a token and enter an amount');
       }
 
-      const parsedAmount = ethers.utils.parseEther(amount);
+      // Get token decimals
+      const tokenContract = new ethers.Contract(
+        selectedToken,
+        ['function decimals() view returns (uint8)'],
+        contractService.provider
+      );
+      const decimals = await tokenContract.decimals();
+      console.log('Token decimals:', decimals);
+
+      // Parse amount with proper decimals
+      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      console.log('Parsed amount:', parsedAmount.toString());
+
       const deposit = userDeposits[selectedToken];
-      
       if (!deposit) {
         throw new Error('No deposit found for this token');
       }
       
-      if (parseFloat(amount) > parseFloat(deposit.amount)) {
+      // Convert deposit amount to same decimal precision for comparison
+      const depositAmount = ethers.utils.parseUnits(deposit.amount, decimals);
+      if (parsedAmount.gt(depositAmount)) {
         throw new Error(`Insufficient deposit. You only have ${deposit.amount} tokens deposited`);
       }
 
