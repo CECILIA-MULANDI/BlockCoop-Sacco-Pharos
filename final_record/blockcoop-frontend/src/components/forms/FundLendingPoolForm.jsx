@@ -18,19 +18,7 @@ const FundLendingPoolForm = () => {
     try {
       if (!contractService.contract || !lendingTokenContract) return;
 
-      let total = ethers.BigNumber.from(0);
-      const userAddress = await contractService.signer.getAddress();
-      const loanCount = await contractService.contract.userLoanCount(
-        userAddress
-      );
-
-      for (let i = 0; i < loanCount.toNumber(); i++) {
-        const loan = await contractService.contract.userLoans(userAddress, i);
-        if (loan.active) {
-          total = total.add(loan.borrowedAmount);
-        }
-      }
-
+      const total = await contractService.contract.totalBorrowed();
       const decimals = await lendingTokenContract.decimals();
       console.log("Total borrowed in wei:", total.toString());
       const formattedTotal = ethers.utils.formatUnits(total, decimals);
