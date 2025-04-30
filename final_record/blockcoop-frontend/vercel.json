@@ -2,6 +2,13 @@
   "version": 2,
   "routes": [
     {
+      "src": "^/assets/(.*)\\.js$",
+      "dest": "/assets/$1.js",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
       "src": "^/static/(.*)",
       "dest": "/static/$1"
     },
@@ -16,6 +23,26 @@
     {
       "src": "^/.*",
       "dest": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)\\.js$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.js$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
     }
   ]
 }
