@@ -9,7 +9,7 @@ A decentralized token lending and borrowing platform built with robust governanc
 **Main Production Version**:
 {todo}
 
-- **Pharos Network DevNet Version**: [BlockCoop Pharos Integration](https://block-coop-sacco-pharos.vercel.app) - Special integration created for the Pharos Network hackathon, showcasing our adaptability and commitment to the Pharos ecosystem.
+**Pharos Network DevNet Version**: [BlockCoop Pharos Integration](https://block-coop-sacco-pharos.vercel.app) - Special integration created for the Pharos Network hackathon, showcasing our adaptability and commitment to the Pharos ecosystem.
 
 ## 📋 Overview
 
@@ -18,38 +18,40 @@ BlockCoop is a comprehensive DeFi protocol that enables users to deposit various
 ### Key Features
 
 - **Multi-Token Support**: Deposit and borrow against various whitelisted tokens
-- **Oracle Integration**: Real-time, secure price feeds for accurate valuations
+- **Oracle Integration**: Secure price feeds for accurate valuations
 - **Risk Management**: Configurable Loan-to-Value ratios and liquidation thresholds
 - **User-Friendly Interface**: Intuitive dashboard for managing deposits and loans
 
-## 🖥️ User Interface & Navigation
+## 🖥️ User Interface & NavigationP
 
-### Dashboard
+### Dashboards
 
-![Dashboard](https://placeholder-for-screenshot.com/dashboard.png)
+<!-- ![Sacco User Dashboard](./readme_assets/UserDashboard.png) -->
 
-The main dashboard provides an overview of:
+The user dashboard provides an overview of:
 
-- Your current deposits and their USD value
-- Active loans and their health ratios
-- Available lending pool liquidity
-- Whitelisted tokens and their current prices
+- Deposit tab to deposit whitelisted tokens as collateral
+  ![Deposit tab](./readme_assets/Deposit.png)
+- Withdraw tab to withdraw whitelisted tokens that are not being used as collateral
+  ![Withdraw tab](./readme_assets/Withdraw.png)
+- Borrow tab to borrow loans against their collateral
+  ![Borrow tab](./readme_assets/Borrow.png)
+- My Loans tab to view their active loans
+  ![My Loans tab](./readme_assets/MyLoans.png)
+- My Account tab to view their token deposits and their USD value
+  ![My Account tab](./readme_assets/userdahboard.png)
 
 ### Deposit Flow
 
-![Deposit Flow](https://placeholder-for-screenshot.com/deposit.png)
-
-1. Select the token you wish to deposit from the dropdown menu
+1. Select the token you wish to deposit from the dropdown menu on the Deposit tab
 2. Enter the amount you want to deposit
 3. Approve the token spending (first transaction)
 4. Confirm your deposit (second transaction)
-5. Your deposit will appear in your portfolio immediately after confirmation
+5. Your deposit will appear in the My Account tab immediately after confirmation
 
 ### Borrowing Flow
 
-![Borrowing Flow](https://placeholder-for-screenshot.com/borrow.png)
-
-1. Navigate to the "Borrow" section
+1. Navigate to the Borrow tab
 2. Select the collateral token and amount you want to use
 3. Enter the amount you wish to borrow (system will show your maximum available)
 4. Confirm the transaction
@@ -57,18 +59,14 @@ The main dashboard provides an overview of:
 
 ### Portfolio Management
 
-![Portfolio Management](https://placeholder-for-screenshot.com/portfolio.png)
-
 Track and manage your:
 
-- Active deposits
-- Current loans and their interest accrual
-- Liquidation risk indicators
-- Repayment options
+- Active deposits on the My Account tab (This is for the tokens you have deposited as collateral)
+- Current loans and their interest accrual on the My Loans tab
 
 ## 🧰 Smart Contracts
 
-### Main Contract: BlockCoopTokens
+### Main Contract: BlockCoopTokens(0x5aCe9a0B4b8EE9255d5F2266bE3a9780ebE28a49)
 
 The core contract handling deposits, loans, and protocol governance.
 
@@ -81,7 +79,7 @@ The core contract handling deposits, loans, and protocol governance.
 
 ### Support Contracts
 
-#### MockPriceFeed (for testing)
+#### MockPriceFeed (for testing) (0xA1CBEe55b7f8B7A161528B44b27196671a09DEe2)
 
 A test contract that mimics Chainlink's AggregatorV3Interface for development and testing purposes.
 
@@ -90,7 +88,7 @@ A test contract that mimics Chainlink's AggregatorV3Interface for development an
 pragma solidity ^0.8.19;
 
 contract MockPriceFeed {
-    int256 public price = 200000000000; // $2000.00, 8 decimals (Chainlink standard)
+    int256 public price = 200000000000;
     uint256 public updatedAt = block.timestamp;
     uint80 public roundId = 1;
     uint256 public startedAt = block.timestamp;
@@ -115,7 +113,7 @@ contract MockPriceFeed {
 }
 ```
 
-#### DemoToken (for testing)
+#### DemoToken (for testing)(lendTokenAddress - 0xB1BF661cf9C19cb899400B0E62D8fc87AA3a22C6) (depositTokenAddress - 0x6588DC27Caa6314A8f99321b5cCB7c1977E1a8bF)
 
 A simple ERC20 token implementation for testing the protocol.
 
@@ -136,8 +134,8 @@ contract DemoToken is ERC20 {
 For the Pharos Network DevNet integration, we've made specific adaptations:
 
 1. **Optimized Gas Usage**: Refactored loops and storage patterns to reduce gas costs on Pharos
-2. **Enhanced Oracle Framework**: Modified price feed implementations to work seamlessly with Pharos Network
-3. **Governance Extensions**: Added Pharos-specific governance mechanisms while maintaining full compatibility
+2. **Created our own mock price oracle**: Modified price feed implementations to work seamlessly with Pharos Network
+3. **Created two mock tokens one for lending(LEND) and one for deposit(WETH)**
 
 The integration demonstrates our commitment to supporting emerging blockchain infrastructures while maintaining the core functionality that makes BlockCoop powerful.
 
@@ -241,8 +239,8 @@ The integration demonstrates our commitment to supporting emerging blockchain in
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/blockcoop/blockcoop-protocol.git
-   cd blockcoop-protocol
+   git clone https://github.com/CECILIA-MULANDI/BlockCoop-Sacco-Pharos.git
+   cd final_record/blockcoop-frontend/
    ```
 
 2. Install dependencies:
@@ -251,13 +249,7 @@ The integration demonstrates our commitment to supporting emerging blockchain in
    npm install
    ```
 
-3. Run tests:
-
-   ```bash
-   npx hardhat test
-   ```
-
-4. Start local development:
+3. Start local development:
    ```bash
    npm run dev
    ```
@@ -266,49 +258,24 @@ The integration demonstrates our commitment to supporting emerging blockchain in
 
 1. Set up your environment variables:
 
-   ```bash
-   cp .env.example .env
+   ```
    # Edit .env with your private key and Pharos DevNet RPC
    ```
 
 2. Deploy contracts:
 
    ```bash
-   npx hardhat run scripts/deploy-pharos.js --network pharosDevnet
+   BlockCoopTokens - npx hardhat run scripts/verify/deployBlocktokens.js --network pharosDevnet
+   MockPriceFeed - npx hardhat run scripts/verify/deployMockPriceFeed.js --network pharosDevnet
+   DemoToken - npx hardhat run scripts/verify/deployDemoToken.js --network pharosDevnet
    ```
 
 3. Verify contracts:
    ```bash
    npx hardhat verify --network pharosDevnet <CONTRACT_ADDRESS>
    ```
-
-## 🌟 Our Journey
-
-BlockCoop has already established itself as a promising DeFi platform, raising significant funding and building an active community. For the Pharos Network HackQuest, we've created a specialized version that demonstrates our ability to adapt to new ecosystems while maintaining our core functionality.
-
-We see great potential in the Pharos Network and wanted to showcase how BlockCoop can contribute to its growth while leveraging its unique features. The Pharos DevNet version represents our commitment to innovation and cross-chain compatibility.
-
-## 🤝 Contributing
-
-We welcome contributions from the community! To contribute:
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add some amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+   st
 
 ## 📜 License
 
 MIT
-
-## 📞 Contact & Support
-
-- **Website**: [https://blockcoop.finance](https://blockcoop.finance)
-- **Twitter**: [@BlockCoopDeFi](https://twitter.com/BlockCoopDeFi)
-- **Discord**: [BlockCoop Community](https://discord.gg/blockcoop)
-- **Email**: team@blockcoop.finance
-
----
-
-_BlockCoop - Bringing Cooperative Finance to Web3_
