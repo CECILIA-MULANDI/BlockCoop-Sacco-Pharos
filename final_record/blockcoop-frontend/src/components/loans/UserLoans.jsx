@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { contractService } from '../../services/contractService';
+import contractService from '../../services/contractService';
 
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 const INTEREST_RATE = 0.05; // 5% annual
@@ -26,10 +26,14 @@ export default function UserLoans() {
       const loanResults = await Promise.all(loanPromises);
       
       // Get lending token info for display
-      const lendingTokenAddress = await contractService.getLendingToken();
       const lendingTokenContract = new ethers.Contract(
-        lendingTokenAddress,
-        ["function symbol() view returns (string)", "function decimals() view returns (uint8)"],
+        "0xB1BF661cf9C19cb899400B0E62D8fc87AA3a22C6", 
+        [
+          "function symbol() view returns (string)",
+          "function decimals() view returns (uint8)",
+          "function balanceOf(address) view returns (uint256)",
+          "function allowance(address owner, address spender) view returns (uint256)"
+        ],
         contractService.provider
       );
       const [symbol, decimals] = await Promise.all([
@@ -95,48 +99,98 @@ export default function UserLoans() {
       setError('');
 
       // Get the lending token contract
-      const tokenAddress = await contractService.getLendingToken();
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
       const lendingTokenContract = new ethers.Contract(
-        tokenAddress,
+        "0xB1BF661cf9C19cb899400B0E62D8fc87AA3a22C6", 
         [
+          "function symbol() view returns (string)",
+          "function decimals() view returns (uint8)",
           "function balanceOf(address) view returns (uint256)",
-          "function approve(address spender, uint256 amount) returns (bool)",
           "function allowance(address owner, address spender) view returns (uint256)",
-          "function decimals() view returns (uint8)"
+          "function approve(address spender, uint256 amount) returns (bool)"
         ],
-        signer
+        contractService.signer
       );
 
-      // Get user's balance
-      const userAddress = await signer.getAddress();
-      const balance = await lendingTokenContract.balanceOf(userAddress);
-      const amount = ethers.utils.parseEther(repayAmount[loanId]);
+      // Get user's address
+      const userAddress = await contractService.signer.getAddress();
+
+      // Fetch loan details to get total owed
+      const contract = new ethers.Contract(
+        contractService.contract.address, 
+        [
+          'function userLoans(address, uint256) view returns (address collateralToken, uint256 collateralAmount, uint256 borrowedAmount, uint256 accruedInterest, uint256 startTimestamp, bool active)',
+          'function INTEREST_RATE() view returns (uint256)',
+          'function SECONDS_PER_YEAR() view returns (uint256)'
+        ], 
+        contractService.provider
+      );
+
+      // Detailed logging for debugging
+      console.log('Attempting to repay loan:', { 
+        loanId, 
+        repayAmount: repayAmount[loanId]
+      });
+
+      const loan = await contract.userLoans(userAddress, loanId);
       
-      if (balance.lt(amount)) {
-        throw new Error("Insufficient lending token balance");
+      // Validate loan is active
+      if (!loan.active) {
+        throw new Error(`Loan ${loanId} is not active`);
       }
 
-      // Check allowance and approve if needed
-      const allowance = await lendingTokenContract.allowance(
-        userAddress,
-        contractService.contract.address
+      const INTEREST_RATE = await contract.INTEREST_RATE();
+      const SECONDS_PER_YEAR = await contract.SECONDS_PER_YEAR();
+
+      const borrowedAmount = loan.borrowedAmount;
+      const startTimestamp = loan.startTimestamp.toNumber();
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const timeElapsed = currentTimestamp - startTimestamp;
+
+      const interest = (borrowedAmount.mul(INTEREST_RATE).mul(timeElapsed)).div(ethers.BigNumber.from(10000).mul(SECONDS_PER_YEAR));
+      const totalOwed = borrowedAmount.add(interest);
+
+      // Get token decimals
+      const decimals = await lendingTokenContract.decimals();
+
+      // Improved repayment amount calculation
+      const repayAmountBN = ethers.utils.parseUnits(
+        // Use string to avoid floating-point precision loss
+        (Math.min(
+          parseFloat(repayAmount[loanId] || '0'), 
+          parseFloat(ethers.utils.formatUnits(totalOwed, decimals))
+        )).toFixed(decimals), 
+        decimals
       );
 
-      if (allowance.lt(amount)) {
-        console.log('Approving tokens...');
-        const approveTx = await lendingTokenContract.approve(
-          contractService.contract.address,
-          amount
-        );
-        await approveTx.wait();
-        console.log('Tokens approved');
+      // Always set full allowance before repayment
+      const approveTx = await lendingTokenContract.approve(
+        contractService.contract.address, 
+        repayAmountBN
+      );
+      await approveTx.wait();
+      console.log('Tokens approved:', repayAmountBN.toString());
+
+      // Additional validation
+      if (repayAmountBN.isZero()) {
+        throw new Error('Repayment amount must be greater than zero');
       }
+
+      // Ensure repayment doesn't exceed total owed
+      if (repayAmountBN.gt(totalOwed)) {
+        throw new Error(`Repayment amount exceeds total owed. Max repayable: ${ethers.utils.formatUnits(totalOwed, decimals)}`);
+      }
+
+      // Debug logging
+      console.log('Repayment Details:', {
+        loanId,
+        repayAmount: repayAmount[loanId],
+        repayAmountBN: repayAmountBN.toString(),
+        loanDetails: loans.find(loan => loan.id === loanId)
+      });
 
       // Repay the loan
-      console.log('Repaying loan:', { loanId, amount: amount.toString() });
-      const tx = await contractService.repayLoan(loanId, amount);
+      console.log('Submitting repayment transaction...');
+      const tx = await contractService.repayLoan(loanId, repayAmountBN);
       await tx.wait();
       console.log('Loan repaid successfully');
 
@@ -145,7 +199,14 @@ export default function UserLoans() {
       await loadLoans();
       setError('');
     } catch (err) {
-      console.error('Error repaying loan:', err);
+      console.error('Full Error Details:', {
+        message: err.message,
+        code: err.code,
+        reason: err.reason,
+        stack: err.stack,
+        name: err.name,
+        toString: err.toString ? err.toString() : 'No toString method'
+      });
       setError(err.message || 'Failed to repay loan');
     } finally {
       setProcessing(prev => ({ ...prev, [loanId]: false }));

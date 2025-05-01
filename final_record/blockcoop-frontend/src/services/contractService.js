@@ -10,7 +10,7 @@ class ContractService {
     this.provider = null;
     this.signer = null;
     this.contract = null;
-    this.address = null;
+    this.address = CONTRACT_ADDRESS;
   }
 
   async init() {
@@ -337,12 +337,91 @@ class ContractService {
       if (!this.contract) {
         await this.init();
       }
-      console.log("Repaying loan:", { loanId, amount: amount.toString() });
-      const tx = await this.contract.repay(loanId, amount);
-      console.log("Repay transaction:", tx.hash);
+      
+      console.log("Repaying loan:", { 
+        loanId: loanId, 
+        amount: amount.toString(), 
+        amountFormatted: ethers.utils.formatUnits(amount, 18) 
+      });
+
+      // Dynamically check available contract methods
+      console.log('Available Contract Methods:', 
+        Object.keys(this.contract.functions).filter(key => 
+          key.startsWith('repay') || key.startsWith('loan')
+        )
+      );
+
+      // Additional diagnostic checks before repayment
+      try {
+        // Check if loan retrieval method exists
+        const loanRetrievalMethod = Object.keys(this.contract.functions).find(
+          method => method.startsWith('getLoan') || method === 'loans'
+        );
+
+        if (loanRetrievalMethod) {
+          const loanDetails = await this.contract[loanRetrievalMethod](loanId);
+          console.log('Loan Details Before Repayment:', {
+            method: loanRetrievalMethod,
+            borrower: loanDetails.borrower,
+            amount: ethers.utils.formatUnits(loanDetails.amount || loanDetails[1], 18),
+            status: loanDetails.status || 'Unknown'
+          });
+        }
+      } catch (detailError) {
+        console.error('Error fetching loan details:', {
+          message: detailError.message,
+          code: detailError.code
+        });
+      }
+
+      // Find the correct repayment method
+      const repayMethods = Object.keys(this.contract.functions).filter(
+        method => method.startsWith('repay')
+      );
+
+      console.log('Potential Repay Methods:', repayMethods);
+
+      let tx;
+      if (repayMethods.includes('repay')) {
+        tx = await this.contract.repay(loanId, amount);
+      } else if (repayMethods.length > 0) {
+        // Try the first available repay method
+        tx = await this.contract[repayMethods[0]](loanId, amount);
+      } else {
+        throw new Error('No repayment method found in contract');
+      }
+
+      console.log("Repay transaction:", {
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to
+      });
       return tx;
     } catch (error) {
-      console.error("Error repaying loan:", error);
+      console.error("Detailed Error repaying loan:", {
+        message: error.message,
+        code: error.code,
+        reason: error.reason,
+        stack: error.stack,
+        data: error.data
+      });
+      
+      // If it's a revert error, try to decode the revert reason
+      if (error.code === 'CALL_EXCEPTION' && error.data) {
+        try {
+          const errorInterface = new ethers.utils.Interface([
+            'error InsufficientRepaymentAmount()',
+            'error LoanAlreadyRepaid()',
+            'error LoanNotActive()',
+            'error UnauthorizedRepayment()'
+          ]);
+          const errorDescription = errorInterface.parseError(error.data);
+          console.error('Decoded Revert Reason:', errorDescription);
+        } catch (decodeError) {
+          console.error('Could not decode revert reason:', decodeError);
+        }
+      }
+      
       throw error;
     }
   }
@@ -369,6 +448,49 @@ class ContractService {
       } else {
         throw new Error(`Failed to fund lending pool: ${error.message}`);
       }
+    }
+  }
+
+  async approveTokens(amount) {
+    try {
+      if (!this.contract) {
+        await this.init();
+      }
+      
+      // Get the lending token contract
+      const lendingTokenAddress = "0xB1BF661cf9C19cb899400B0E62D8fc87AA3a22C6";
+      const lendingTokenContract = new ethers.Contract(
+        lendingTokenAddress, 
+        ["function approve(address spender, uint256 amount) public returns (bool)"],
+        this.signer
+      );
+
+      console.log('Approving tokens:', {
+        amount: amount.toString(),
+        contractAddress: this.contract.address,
+        lendingTokenAddress: lendingTokenAddress
+      });
+
+      const tx = await lendingTokenContract.approve(
+        this.contract.address, 
+        amount
+      );
+      
+      console.log('Approve transaction:', {
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to
+      });
+
+      return tx;
+    } catch (error) {
+      console.error('Error approving tokens:', {
+        message: error.message,
+        code: error.code,
+        reason: error.reason,
+        stack: error.stack
+      });
+      throw error;
     }
   }
 
@@ -519,4 +641,6 @@ class ContractService {
   }
 }
 
-export const contractService = new ContractService();
+const contractService = new ContractService();
+export default contractService;
+export { ContractService, contractService };
