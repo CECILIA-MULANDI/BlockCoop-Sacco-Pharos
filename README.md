@@ -22,7 +22,7 @@ BlockCoop is a comprehensive DeFi protocol that enables users to deposit various
 - **Risk Management**: Configurable Loan-to-Value ratios and liquidation thresholds
 - **User-Friendly Interface**: Intuitive dashboard for managing deposits and loans
 
-## 🖥️ User Interface & NavigationP
+## 🖥️ User Interface & Navigation
 
 ### Dashboards
 
