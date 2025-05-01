@@ -1,8 +1,8 @@
 # BlockCoopTokens
 
-![BlockCoop Banner](../readme_assets/HomePage.png)
+![BlockCoop Welcome Page](./readme_assets/HomePage.png)
 
-A decentralized token lending and borrowing platform built on Ethereum with robust governance, risk management, and price feed integration. BlockCoop enables communities to create cooperative-based financial services with advanced DeFi capabilities.
+A decentralized token lending and borrowing platform built with robust governance, risk management, and price feed integration. BlockCoop enables communities to create cooperative-based financial services with advanced DeFi capabilities.
 
 ## 🚀 Live Versions
 
