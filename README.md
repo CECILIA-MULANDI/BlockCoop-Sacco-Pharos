@@ -39,7 +39,7 @@ The user dashboard provides an overview of:
 - My Loans tab to view their active loans
   ![My Loans tab](./readme_assets/MyLoans.png)
 - My Account tab to view their token deposits and their USD value
-  ![My Account tab](./readme_assets/userdahboard.png)
+  ![My Account tab](./readme_assets/MyAccount.png)
 
 ### Deposit Flow
 
