@@ -1,5 +1,6 @@
 # BlockCoopTokens
 
+![Demo Video](https://www.loom.com/share/fdfaedad160e47368e5eb5ca6dabc134?sid=0fb00697-4b1c-4b63-93bf-14115b352bbe)
 ![BlockCoop Welcome Page](./readme_assets/HomePage.png)
 
 A decentralized token lending and borrowing platform built with robust governance, risk management, and price feed integration. BlockCoop enables communities to create cooperative-based financial services with advanced DeFi capabilities.
